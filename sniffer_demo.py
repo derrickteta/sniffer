@@ -7,6 +7,9 @@
 import socket
 import struct
 import textwrap
+import datetime
+from time import strftime
+
 
 TAB_1 = '\t - '
 TAB_2 = '\t\t - '
@@ -17,51 +20,51 @@ DATA_TAB_1= '\t '
 DATA_TAB_2= '\t\t '
 DATA_TAB_3= '\t\t\t '
 DATA_TAB_4= '\t\t\t\t '
-
-
+ip_address="192.168.43.150"
+chemin="/home/derrick/Documents/rapport.txt"
 def main():
     conn=socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+    ligne=1
+    tmp={}
+    lignestr=str(ligne)
+    savefile= open(chemin, "a")
+    print('*************************Enregistrement dans le fichier***********************')
     while True:
         raw_data, addr = conn.recvfrom(65535)
         dest_mac, src_mac, eth_proto, data  =ethernet_frame(raw_data)
-        print('\nEthernet Frame:')
-        print(TAB_1 + 'Destination: {}, Source: {}, Protocol: {}'.format(dest_mac,src_mac,eth_proto))
+        tailleint= len(raw_data)
+        taille = str(tailleint)
+        now = datetime.datetime.now()
+        tps=now.strftime("%H:%M:%S %d/%m/%Y")
         
         #8 for IPV4
         if eth_proto == 8:
             (version, header_lenght,ttl, proto, src, target, data) = ipv4_packet(data)
-            print (TAB_1 + 'IPV4 Packet:')
-            print(TAB_2 + 'version: {}, Header_Lenght: {}, TTL: {}'.format(version, header_lenght, ttl))
-            print(TAB_2 + 'Protocol: {}, Source: {}, Target: {}'.format(proto, src, target)) 
             
             if proto == 1:
                 icmp_type, code, checksum, data = icmp_packet(data)
-                print(TAB_1 + 'ICMP packet:')
-                print(TAB_2 + 'Type: {}, Code: {}, Checksum: {}'.format(icmp_type,code,checksum))
-                print(TAB_2 + 'Data:')
-                print(format_multi_line(DATA_TAB_3,data))
-
             #TCP
             elif proto == 6:
                 (src_port, dest_port, sequence, acknowledgement, flag_urg, flag_ack, flag_psh, flag_rst, flag_syn,flag_fin, data ) = tcp_segment(data)
-                print(TAB_1 + 'TCP Segment:')
-                print(TAB_2 + 'Source Port: {}, Destination Port: {}'.format(src_port,dest_port))
-                print(TAB_2 + 'Sequence: {}, Acknowledgement: {}'.format(sequence,acknowledgement))
-                print(TAB_2 + 'Flags:')
-                print(TAB_3 + 'URG: {}, ACK: {}, PSH: {}, RST: {},SYN: {}, FIN: {}'.format(flag_urg, flag_ack, flag_psh, flag_rst, flag_syn,flag_fin))
-                print(TAB_2 + 'Data:')
-                print(format_multi_line(DATA_TAB_3,data))
             #UDP
             elif proto == 17:
                 src_port , dest_port, length, data =udp_segment(data)
-                print(TAB_1 + 'UDP Segment:')
-                print(TAB_2 + 'Source Port: {}, Destination Port: {},lenth: {}'.format(src_port,dest_port,length))
+        if target != ip_address:
+            lignestr=str(ligne)
+            src_portstr=str(src_port)
+            savefile.write("\n "+lignestr+"-) IP machine: "+src+":\n"
+                           +DATA_TAB_2+ "  port:"+src_portstr+"  taille:"+taille+" Octect temps:"+tps+" \n")       
+            tmp={target:"-) IP machine: "+src+":\n"
+                           +DATA_TAB_2+ "  port:"+src_portstr}
+            ligne=ligne+1
+        else:
+            for srctmp, srcinfo in tmp.items():
+                if src==srctmp:
+                    lignestr=str(ligne) 
+                    savefile.write("\n "+lignestr+tmp[src]+"  taille:"+taille+" Octect temps:"+tps+" \n")
+                    ligne=ligne+1
             
-            #other:
-            else: 
-                print (TAB_1 + 'Data:')
-                print(format_multi_line(DATA_TAB_2,data))
-     
+    savefile.close()
 #unapack ethernet frame 
 def ethernet_frame(data):
     dest_mac,src_mac, proto = struct.unpack('! 6s 6s H',data[:14])
